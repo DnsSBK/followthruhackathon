@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>followthru.ai</title>
+  <meta name="description" content="A study planner for neurodivergent students that runs itself." />
+  <meta name="theme-color" content="#EEE8DC" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1B1D1A" media="(prefers-color-scheme: dark)" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/style.css" />
+  <script type="importmap">{ "imports": { "chrono-node": "./vendor/chrono.mjs" } }</script>
+  <script src="vendor/pdf.min.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="bar">
+    <a class="brand" href="#now" aria-label="followthru, go to Now">
+      <span class="mark" data-icon="loop" aria-hidden="true"></span>
+      <span>followthru</span>
+    </a>
+
+    <nav class="nav" aria-label="Screens">
+      <a href="#now" data-route="now"><span data-icon="target" aria-hidden="true"></span><span>Now</span></a>
+      <a href="#add" data-route="add"><span data-icon="plus" aria-hidden="true"></span><span>Add</span></a>
+      <a href="#week" data-route="week"><span data-icon="calendar" aria-hidden="true"></span><span>Week</span></a>
+      <a href="#path" data-route="path"><span data-icon="flag" aria-hidden="true"></span><span>Path</span></a>
+    </nav>
+
+    <div class="more">
+      <button class="icon-btn" id="moreBtn" type="button" aria-expanded="false" aria-controls="moreMenu" aria-label="More options">
+        <span data-icon="dots" aria-hidden="true"></span>
+      </button>
+      <div class="menu" id="moreMenu" hidden>
+        <button type="button" id="demoBtn"><span data-icon="sparkle" aria-hidden="true"></span>Load a demo week</button>
+        <button type="button" id="themeBtn"><span data-icon="moon" aria-hidden="true"></span><span id="themeLabel">Theme: match device</span></button>
+        <button type="button" id="resetBtn"><span data-icon="trash" aria-hidden="true"></span>Clear everything</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <!-- NOW: one task, nothing else -->
+    <section class="screen" data-screen="now" aria-labelledby="nowTitle">
+      <h1 class="sr-only" id="nowTitle">Now</h1>
+      <div id="nowBody" class="now"></div>
+    </section>
+
+    <!-- ADD: pick one way in -->
+    <section class="screen" data-screen="add" aria-labelledby="addTitle" hidden>
+      <div class="stack narrow">
+        <p class="kicker"><span data-icon="plus" aria-hidden="true"></span>Add</p>
+        <h1 class="display" id="addTitle">Get it out of your head.</h1>
+        <p class="lede">Pick one. You'll check everything before it goes in your plan.</p>
+
+        <div class="choices" role="tablist" aria-label="How do you want to add things?">
+          <button class="choice" role="tab" aria-selected="false" aria-controls="panel-voice" id="tab-voice" data-mode="voice" type="button">
+            <span class="choice-icon" data-icon="mic" aria-hidden="true"></span><span class="choice-t">Say it</span><span class="choice-s">Voice note</span>
+          </button>
+          <button class="choice" role="tab" aria-selected="false" aria-controls="panel-type" id="tab-type" data-mode="type" type="button">
+            <span class="choice-icon" data-icon="keyboard" aria-hidden="true"></span><span class="choice-t">Type it</span><span class="choice-s">Brain dump</span>
+          </button>
+          <button class="choice" role="tab" aria-selected="false" aria-controls="panel-pdf" id="tab-pdf" data-mode="pdf" type="button">
+            <span class="choice-icon" data-icon="file" aria-hidden="true"></span><span class="choice-t">Drop a file</span><span class="choice-s">Handbook or brief</span>
+          </button>
+        </div>
+
+        <div class="panel" id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden>
+          <button class="mic" id="micBtn" type="button" aria-pressed="false">
+            <span class="mic-ring" aria-hidden="true"><span data-icon="mic"></span></span>
+            <span id="micLabel">Tap to start talking</span>
+          </button>
+          <p class="status" id="micStatus" role="status"></p>
+          <label class="sr-only" for="voiceText">What you said</label>
+          <textarea id="voiceText" rows="4" placeholder="Your words appear here. Fix anything you like."></textarea>
+          <button class="primary" id="voiceParseBtn" type="button"><span data-icon="arrow" aria-hidden="true"></span>Turn into tasks</button>
+        </div>
+
+        <div class="panel" id="panel-type" role="tabpanel" aria-labelledby="tab-type" hidden>
+          <label class="sr-only" for="typeText">Brain dump</label>
+          <textarea id="typeText" rows="5" placeholder="e.g. prep 3 slides on fiscal policy for Friday's seminar and read chapter 4, also email my tutor by Monday"></textarea>
+          <button class="primary" id="typeParseBtn" type="button"><span data-icon="arrow" aria-hidden="true"></span>Turn into tasks</button>
+        </div>
+
+        <div class="panel" id="panel-pdf" role="tabpanel" aria-labelledby="tab-pdf" hidden>
+          <label class="drop" id="dropzone">
+            <input type="file" id="pdfInput" accept=".pdf,.txt,application/pdf,text/plain" multiple />
+            <span class="drop-icon" data-icon="upload" aria-hidden="true"></span>
+            <strong>Drop a PDF here</strong>
+            <span class="muted">or tap to choose · PDF or .txt</span>
+          </label>
+          <details class="disclose">
+            <summary><span data-icon="chev" aria-hidden="true"></span>Which module is it for?</summary>
+            <label class="field"><span>Module</span><input id="pdfModule" list="moduleList" placeholder="Leave blank to detect it from the file" /></label>
+          </details>
+          <p class="status" id="pdfStatus" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WEEK: one day at a time -->
+    <section class="screen" data-screen="week" aria-labelledby="weekTitle" hidden>
+      <div class="stack">
+        <div class="headrow">
+          <div>
+            <p class="kicker"><span data-icon="calendar" aria-hidden="true"></span>Week of <span id="weekLabel"></span></p>
+            <h1 class="display" id="weekTitle"></h1>
+          </div>
+          <div class="row">
+            <button class="icon-btn" id="prevWeek" type="button" aria-label="Previous week"><span data-icon="left" aria-hidden="true"></span></button>
+            <button class="icon-btn" id="nextWeek" type="button" aria-label="Next week"><span data-icon="right" aria-hidden="true"></span></button>
+          </div>
+        </div>
+        <div class="days" id="days" role="tablist" aria-label="Days"></div>
+        <ol class="agenda" id="agenda" aria-live="polite"></ol>
+        <div class="row wrap gap-l">
+          <button class="secondary" id="addClassBtn" type="button"><span data-icon="plus" aria-hidden="true"></span>Add a class</button>
+          <details class="disclose inline">
+            <summary><span data-icon="chev" aria-hidden="true"></span>Planning hours</summary>
+            <div class="row gap">
+              <label class="field"><span>Start work from</span><select id="dayStart"></select></label>
+              <label class="field"><span>Stop at</span><select id="dayEnd"></select></label>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATH: deadlines as stepping stones -->
+    <section class="screen" data-screen="path" aria-labelledby="pathTitle" hidden>
+      <div class="stack narrow">
+        <p class="kicker"><span data-icon="flag" aria-hidden="true"></span>Path</p>
+        <h1 class="display" id="pathTitle">One step at a time.</h1>
+        <p class="lede" id="pathLede"></p>
+        <ol class="path" id="pathList"></ol>
+        <button class="secondary" id="pathMore" type="button" hidden></button>
+        <details class="disclose" id="undatedWrap" hidden>
+          <summary><span data-icon="chev" aria-hidden="true"></span><span id="undatedSummary"></span></summary>
+          <ol class="path compact" id="undatedList"></ol>
+        </details>
+        <details class="disclose" id="doneWrap" hidden>
+          <summary><span data-icon="chev" aria-hidden="true"></span><span id="doneSummary"></span></summary>
+          <ol class="path compact" id="doneList"></ol>
+        </details>
+        <button class="secondary" id="addItemBtn" type="button"><span data-icon="plus" aria-hidden="true"></span>Add a deadline</button>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="moduleList"></datalist>
+
+  <!-- Check what was found -->
+  <dialog id="reviewDialog" class="sheet">
+    <form method="dialog" id="reviewForm" novalidate>
+      <p class="kicker"><span data-icon="check" aria-hidden="true"></span>Check</p>
+      <h2 class="title" id="reviewTitle"></h2>
+      <p class="lede">Nothing goes in until you say so. Tap a row to leave it out.</p>
+      <ul class="review" id="reviewRows"></ul>
+      <div class="actions">
+        <button class="secondary" value="cancel" type="submit">Cancel</button>
+        <button class="primary" value="add" id="reviewAdd" type="submit"><span data-icon="check" aria-hidden="true"></span><span id="reviewAddLabel">Add</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Class -->
+  <dialog id="classDialog" class="sheet small">
+    <form method="dialog" id="classForm">
+      <p class="kicker"><span data-icon="book" aria-hidden="true"></span>Class</p>
+      <h2 class="title" id="classDialogTitle">Add a class</h2>
+      <label class="field"><span>Module</span><input name="module" list="moduleList" required placeholder="e.g. Macroeconomics" /></label>
+      <div class="row gap">
+        <label class="field"><span>Day</span>
+          <select name="day">
+            <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
+            <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option>
+          </select>
+        </label>
+        <label class="field"><span>Type</span>
+          <select name="type"><option>Lecture</option><option>Seminar</option><option>Lab</option><option>Workshop</option><option>Other</option></select>
+        </label>
+      </div>
+      <div class="row gap">
+        <label class="field"><span>Starts</span><input name="start" type="time" step="900" required value="10:00" /></label>
+        <label class="field"><span>Ends</span><input name="end" type="time" step="900" required value="11:00" /></label>
+      </div>
+      <label class="field"><span>Room (optional)</span><input name="location" /></label>
+      <p class="form-error" id="classError" role="alert"></p>
+      <div class="actions">
+        <button class="text-btn" value="delete" id="classDelete" type="submit" formnovalidate><span data-icon="trash" aria-hidden="true"></span>Delete</button>
+        <span class="spacer"></span>
+        <button class="secondary" value="cancel" type="submit" formnovalidate>Cancel</button>
+        <button class="primary" value="save" type="submit"><span data-icon="check" aria-hidden="true"></span>Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Deadline / task -->
+  <dialog id="itemDialog" class="sheet small">
+    <form method="dialog" id="itemForm">
+      <p class="kicker"><span data-icon="flag" aria-hidden="true"></span>Deadline or task</p>
+      <h2 class="title" id="itemDialogTitle">Add a deadline</h2>
+      <label class="field"><span>What is it?</span><input name="title" required placeholder="e.g. Fiscal policy essay" /></label>
+      <div class="row gap">
+        <label class="field"><span>Due (optional)</span><input name="due" type="datetime-local" /></label>
+        <label class="field"><span>Hours of work</span><input name="hours" type="number" min="0.05" step="any" value="1" required /></label>
+      </div>
+      <details class="disclose">
+        <summary><span data-icon="chev" aria-hidden="true"></span>More details</summary>
+        <div class="row gap">
+          <label class="field"><span>Module</span><input name="module" list="moduleList" /></label>
+          <label class="field"><span>Weighting %</span><input name="weight" type="number" min="0" max="100" /></label>
+        </div>
+      </details>
+      <div class="actions">
+        <button class="text-btn" value="delete" id="itemDelete" type="submit" formnovalidate><span data-icon="trash" aria-hidden="true"></span>Delete</button>
+        <span class="spacer"></span>
+        <button class="secondary" value="cancel" type="submit" formnovalidate>Cancel</button>
+        <button class="primary" value="save" type="submit"><span data-icon="check" aria-hidden="true"></span>Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span class="toast-icon" id="toastIcon" aria-hidden="true"></span>
+    <span id="toastMsg"></span>
+    <button class="toast-undo" id="toastUndo" type="button"><span data-icon="undo" aria-hidden="true"></span>Undo</button>
+  </div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
